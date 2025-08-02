@@ -369,7 +369,17 @@ app.get('/api/bypass', async (req, res) => {
     return res.status(400).json({ error: 'URL tidak valid atau bukan ouo.io/ouo.press' });
   }
 
-  const browser = await chromium.launch({ headless: true });
+  const browser = await playwright.chromium.launch({
+			args: [
+				'--incognito',
+				'--single-process',
+				'--no-sandbox',
+				'--no-zygote',
+				'--no-cache'
+			],
+			executablePath: process.env.CHROME_BIN,
+			headless: true,
+		})
   const context = await browser.newContext({
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115 Safari/537.36'
   });
