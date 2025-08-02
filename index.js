@@ -7,6 +7,7 @@ import morgan from 'morgan'
 import os from 'os'
 import path from 'path'
 import playwright from 'playwright'
+import { chromium } from 'playwright'
 import PDFDocument from 'pdfkit'
 import sharp from 'sharp'
 import util from 'util'
@@ -361,6 +362,72 @@ app.all('/topdf', async (req, res) => {
 		res.status(500).json({ error: true, message: utils.getError(e) })
 	}
 })
+
+app.get('/api/bypass', async (req, res) => {
+  const { url } = req.query;
+  if (!url || !url.includes('ouo.')) {
+    return res.status(400).json({ error: 'URL tidak valid atau bukan ouo.io/ouo.press' });
+  }
+
+  const browser = await chromium.launch({ headless: true });
+  const context = await browser.newContext({
+    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115 Safari/537.36'
+  });
+  const page = await context.newPage();
+
+  await page.route('**/*', (route) => {
+    const reqUrl = route.request().url();
+    if (reqUrl.includes('ouo')) {
+      route.continue();
+    } else {
+      route.abort();
+    }
+  });
+
+  try {
+    console.log('[1] Akses:', url);
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+
+    console.log('[2] Menunggu tombol captcha...');
+    await page.waitForSelector('#btn-main:not(.disabled)', { timeout: 30000 });
+
+    console.log('[3] Klik tombol...');
+    await Promise.all([
+      page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {}),
+      page.click('#btn-main')
+    ]);
+
+    let currentUrl = page.url();
+    console.log('[4] Setelah klik:', currentUrl);
+
+    // Loop max 10x tiap 1 detik sampai /go/
+    for (let i = 0; i < 10; i++) {
+      if (currentUrl.includes('/go/')) break;
+      await page.waitForTimeout(1000);
+      currentUrl = page.url();
+    }
+
+    if (!currentUrl.includes('/go/')) throw new Error('Gagal redirect ke /go/');
+
+    console.log('[5] Di /go/, klik Get Link...');
+    await page.waitForSelector('#btn-main:not(.disabled)', { timeout: 20000 });
+
+    await Promise.all([
+      page.waitForNavigation({ waitUntil: 'load', timeout: 15000 }).catch(() => {}),
+      page.click('#btn-main')
+    ]);
+
+    const finalUrl = page.url();
+    console.log('[6] Final:', finalUrl);
+
+    res.json({ success: true, url: finalUrl });
+  } catch (err) {
+    console.error('[!] Error:', err.message);
+    res.status(500).json({ success: false, message: err.message });
+  } finally {
+    await browser.close();
+  }
+});
 
 app.all(/^\/webp2(gif|mp4|png)/, async (req, res) => {
 	if (req.method !== 'POST')
