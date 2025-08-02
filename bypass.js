@@ -1,6 +1,8 @@
 //yang nyolong insyallah besok mati
 //minimal kasih credits
-// bypass.mjs
+
+import { chromium } from 'playwright';
+
 export async function bypassOuo(url) {
   if (!url.includes('ouo.')) throw new Error('URL bukan ouo.io atau ouo.press');
 
@@ -50,4 +52,3 @@ export async function bypassOuo(url) {
     await browser.close();
   }
 }
-
